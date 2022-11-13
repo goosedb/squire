@@ -48,8 +48,8 @@ buildFrom fromTables = do
           cl' <- buildExpr cl
           pure case jt of
             Inner -> " INNER JOIN \"" <> name <> "\" AS " <> alias <> " ON " <> cl'
-            LeftOuter -> " LEFT JOIN \"" <> name <> "\" AS " <> alias <> " ON " <> cl'
-            FullOuter -> " FULL JOIN \"" <> name <> "\" AS " <> alias <> " ON " <> cl'
+            LeftOuter -> " LEFT OUTER JOIN \"" <> name <> "\" AS " <> alias <> " ON " <> cl'
+            FullOuter -> " FULL OUTER JOIN \"" <> name <> "\" AS " <> alias <> " ON " <> cl'
   pure $ fold tables
 
 buildSelectVals :: [ReturnExpr] -> State BuildState BS.Builder

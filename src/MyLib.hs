@@ -20,7 +20,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-
 module MyLib where
 
 import Data.List.NonEmpty (NonEmpty (..))
@@ -94,17 +93,28 @@ someFunc = do
 
   r1 <- runQuery conn do
     u <- Q.from @User 
-    p <- Q.innerJoin @Pet \p -> #owner @. p ==. eid @. u
+    p <- Q.leftJoin @Pet \p -> #owner @? p ==. Q.just (eid @. u)
     Q.where' (Q.eid @. u ==. Q.val uId)
     Q.one (p :*: u) 
   print r1
 
   runUpdate conn $ Q.update @Pet \_ -> Q.set [#name =: Q.val @String "mda"]  
+
   r2 <- runQuery conn do
     u <- Q.from @User 
     p <- Q.innerJoin @Pet \p -> #owner @. p ==. eid @. u
     Q.where' (Q.eid @. u ==. Q.val uId)
     Q.one (p :*: u) 
+
+  _ <- runInsert conn (InsertId (User "kyk" 18))
+  _ <- runInsert conn (InsertId (User "quz" 21))
+
   print r2
-  
-  pure ()
+
+  r3 <- runQuery conn do
+    u <- Q.from @User 
+    p <- Q.leftJoin @Pet \p -> #owner @? p ==. Q.just (eid @. u)
+    Q.many (u :*: p) 
+  print r3
+
+

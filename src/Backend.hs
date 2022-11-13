@@ -235,7 +235,7 @@ instance Backend Sqlite where
 
 
 
-checkForUniques :: (TableColumns t, TableCodec t) => Conn Sqlite -> t -> [Unique t] -> IO (Maybe (ID t))
+checkForUniques :: (IsTable t) => Conn Sqlite -> t -> [Unique t] -> IO (Maybe (ID t))
 checkForUniques _ _ [] = pure Nothing
 checkForUniques conn a (u: us) = do
   conflict <- getIdBy conn a (uniqueColumns u)

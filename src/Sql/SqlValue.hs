@@ -50,7 +50,7 @@ parseValue tag h = Parser \vals f s -> case vals of
   [] -> f [] "Failed to parse query result. Unexpected EOF"
   sv : svs -> h (s svs) (f svs $ "Failed to parse " <> tag <> ". got: " <> typeOfValue sv) sv
   where
-    typeOfValue = \case
+    typeOfValue a = case a of 
       SqlTextValue _ -> "TEXT"
       SqlBytesValue _ -> "BYTES"
       SqlIntValue _ -> "INT"
@@ -112,4 +112,4 @@ instance IsSqlValue a => IsSqlValue (Maybe a) where
   fromSqlValue = Parser \vals f s -> case vals of
     [] -> f [] "Failed to parse query result. Unexpected EOF"
     (SqlNull : rest) -> s rest Nothing
-    _ -> runParser fromSqlValue vals f s
+    _ -> runParser (fmap Just fromSqlValue) vals f s

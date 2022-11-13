@@ -30,13 +30,13 @@ instance (GenericEncode b) => GenericEncode (G.D1 a b) where
 instance (GenericEncode b) => GenericEncode (G.C1 a b) where
   genericEncode (G.M1 c) = genericEncode @_ @b c
 
-instance (GenericEncode b, IsSqlValue ty) => GenericEncode (G.S1 ( 'G.MetaSel ( 'Just name) dc1 dc2 dc3) (G.Rec0 ty) G.:*: b) where
-  genericEncode ((G.M1 (G.K1 a)) G.:*: b) =
-    let a' = toSqlValue a
+instance (GenericEncode b, GenericEncode a) => GenericEncode (a G.:*: b) where
+  genericEncode (a G.:*: b) =
+    let a' = genericEncode a
         b' = genericEncode b
-     in a' : b'
+     in a' <> b'
 
-instance (IsSqlValue ty) => GenericEncode (G.S1 ( 'G.MetaSel ( 'Just name) dc1 dc2 dc3) (G.Rec0 ty)) where
+instance (IsSqlValue ty) => GenericEncode (G.S1 ('G.MetaSel ('Just name) dc1 dc2 dc3) (G.Rec0 ty)) where
   genericEncode (G.M1 (G.K1 a)) = [toSqlValue a]
 
 class GenericDecode (a :: k -> *) where
@@ -49,13 +49,13 @@ instance (GenericDecode b) => GenericDecode (G.C1 a b) where
   genericDecode = G.M1 <$> genericDecode @_ @b
 
 instance
-  (GenericDecode b, IsSqlValue ty)
-  => GenericDecode (G.S1 ( 'G.MetaSel ( 'Just name) dc1 dc2 dc3) (G.Rec0 ty) G.:*: b)
+  (GenericDecode b, GenericDecode a)
+  => GenericDecode (a G.:*: b)
   where
   genericDecode = do
-    a' <- genericDecodeVal @ty
+    a' <- genericDecode
     b' <- genericDecode
-    pure (G.M1 (G.K1 a') G.:*: b')
+    pure (a' G.:*: b')
 
 instance (IsSqlValue ty) => GenericDecode (G.S1 ( 'G.MetaSel ( 'Just name) dc1 dc2 dc3) (G.Rec0 ty)) where
   genericDecode = G.M1 . G.K1 <$> genericDecodeVal @ty
