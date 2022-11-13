@@ -1,0 +1,23 @@
+name:               squire
+version:            0.1.0.0
+
+license:            NONE
+author:             Danil Berestov
+maintainer:         goosedb@yandex.ru
+
+extra-source-files: CHANGELOG.md
+
+library:
+  dependencies:    
+    - base ^>=4.14.3.0
+    - text
+    - mtl
+    - bytestring
+    - sqlite-simple
+    - containers
+    - template-haskell
+    - universe
+  source-dirs:   src
+  language: Haskell2010
+  ghc-options: -Wall
+

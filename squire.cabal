@@ -1,0 +1,53 @@
+cabal-version: 2.2
+
+name:               squire
+version:            0.1.0.0
+license:            NONE
+build-type:         Simple
+author:             Danil Berestov
+maintainer:         goosedb@yandex.ru
+extra-source-files:
+      CHANGELOG.md
+
+library
+    exposed-modules:
+          Backend
+          MyLib
+          Sql.Query
+          Sql.Query.Types
+          Sql.SqlExpr.Internal
+          Sql.SqlType
+          Sql.SqlValue
+          Sql.Table
+          Sql.Table.Columns
+          Sql.Table.Columns.TH
+          Sql.Table.TableCodec
+          Sql.Table.TableInfo
+          Sql.Types
+          Sql.Update
+          Sqlite.Build.Common
+          Sqlite.Build.CreateTable
+          Sqlite.Build.Delete
+          Sqlite.Build.DropTable
+          Sqlite.Build.Insert
+          Sqlite.Build.Query
+          Sqlite.Build.Types
+          Sqlite.Build.Update
+          Types
+    other-modules:
+          Paths_squire
+    autogen-modules:
+          Paths_squire
+    build-depends:
+          base >=4.14.3.0 && <4.15
+        , bytestring
+        , containers
+        , mtl
+        , sqlite-simple
+        , template-haskell
+        , text
+        , universe
+    hs-source-dirs:
+          src
+    default-language: Haskell2010
+    ghc-options: -Wall
