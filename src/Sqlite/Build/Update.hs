@@ -3,6 +3,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Sqlite.Build.Update where
 
@@ -17,15 +19,17 @@ import Sql.Types (ColumnName (ColumnName), TableName (..))
 import Sql.Update (SetField (..), Update, UpdateState (..), runUpdate)
 import Sqlite.Build.Query (buildExpr, buildFrom, buildWhere)
 import Sqlite.Build.Types (BuildState)
+import Sql.Table.TableInfo (TableInfo(tableName))
+import Sql.Table (IsTable)
 
-buildUpdate :: Update ty () -> State BuildState BS.Builder
+buildUpdate :: forall ty. IsTable ty => Update ty () -> State BuildState BS.Builder
 buildUpdate (runUpdate 0 -> UpdateState{..}) = do
-  let updatedTables = fold $ intersperse "," $ map (\case SetField (TableName tn) _ _ -> "\"" <> tn <> "\"") updateFields_
+  let updatedTables = coerce (tableName @ty)
   set_ <-
     fold . intersperse (", " :: BS.Builder) <$> forM
       updateFields_
       \case
-        SetField _ (ColumnName cn) (SqlExpr se) -> do
+        SetField (ColumnName cn) (SqlExpr se) -> do
           e' <- buildExpr se
           pure $ "\"" <> cn <> "\" = " <> e'
   fromTables_ <- case fromClause_ of

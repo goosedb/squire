@@ -16,7 +16,7 @@ import Data.List.NonEmpty (fromList)
 import Data.Maybe (mapMaybe)
 import Data.String (IsString (..))
 import GHC.OverloadedLabels (IsLabel (..))
-import GHC.Records (HasField)
+import GHC.Records (HasField(..))
 import Language.Haskell.TH
   ( Body (..)
   , Con (RecC)
@@ -37,7 +37,7 @@ import Sql.SqlType (TypeDown (..))
 import Sql.SqlValue (IsSqlValue (..))
 import Sql.Table.Columns
 import Sql.Table.TableInfo (ID (..), fullTableName, idColumnName)
-import Sql.Types (ColumnName (ColumnName), IDReference (..), SqlColumn (..), TypedColumn (..))
+import Sql.Types (ColumnName (ColumnName), IDReference (..), SqlColumn (..), TypedColumn (..), UniqueColumn (..))
 
 data Replace = Replace {from :: String, to :: String}
   deriving (Show)
@@ -50,7 +50,7 @@ makeGenericColumns dataName replace = do
 
   let wholeType = ConT dataName
 
-  cols <- forM namesWithSqlNamesWithTypes \(name, sqlName, ty) -> do
+  cols <- concat <$> forM namesWithSqlNamesWithTypes \(name, sqlName, ty) -> do
     forType <- case ty of
       AppT (ConT t) idOf | t == ''ID -> do
         FamilyI _ idInstances <- reify t
@@ -66,17 +66,30 @@ makeGenericColumns dataName replace = do
     let typeVar = VarT (mkName "a")
     let ctx = [ConT ''HasField .$ nameType .$ wholeType .$ forType, EqualityT .$ forType .$ typeVar]
     let rowInstanceHead = ConT ''IsLabel .$ nameType .$ (ConT ''TypedColumn .$ wholeType .$ typeVar)
+    let uniqueInstanceHead = ConT ''IsLabel .$ nameType .$ (ConT ''UniqueColumn .$ wholeType)
     sqlNameE <- [|sqlName|]
-    let body =
+    let rowBody =
           [ SigD 'fromLabel (ConT ''TypedColumn .$ wholeType .$ typeVar)
           , ValD (VarP 'fromLabel) (NormalB (ConE 'TypedColumn .& (ConE 'ColumnName .& sqlNameE))) []
           ]
 
-    let rowInstance = InstanceD Nothing ctx rowInstanceHead body
-    pure rowInstance
+    let uniqueBody =
+          [ SigD 'fromLabel (ConT ''UniqueColumn .$ wholeType)
+          , ValD 
+              (VarP 'fromLabel) 
+              (NormalB $
+                ConE 'UniqueColumn .& (ConE 'ColumnName .& sqlNameE) .& (VarE '(.) .& VarE 'toSqlValue .& AppTypeE (VarE 'getField) nameType)
+              ) []
+          ]
+
+    let rowInstance = InstanceD Nothing ctx rowInstanceHead rowBody
+    let uniqueInstance = InstanceD Nothing ctx uniqueInstanceHead uniqueBody
+    pure [rowInstance, uniqueInstance]
+
 
   colClass <- deriveColumnClass dataName $ map (\(_, a, b) -> (a, b)) namesWithSqlNamesWithTypes
   pure (colClass : cols)
+
 
 check :: Name -> [Replace] -> Q [(String, Type)]
 check dataName replace = do
@@ -93,8 +106,8 @@ check dataName replace = do
 
 type MakeSelectorName = String -> String
 
-makeColumns :: Name -> [Replace] -> MakeSelectorName -> Q [Dec]
-makeColumns dataName replace makeSelectorName = do
+makeColumns :: Name -> [Replace] -> MakeSelectorName -> [String] -> Q [Dec]
+makeColumns dataName replace makeSelectorName _ = do
   selectorsWithTypes <- check dataName replace
 
   let wholeType = ConT dataName

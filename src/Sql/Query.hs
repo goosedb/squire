@@ -260,10 +260,10 @@ instance (Return b, Return a) => Return (a :*: b) where
   ret (a :*: b) = ret a <> ret b
 
 instance IsTable a => Return (MaybeRow a) where
-  ret _ = toList (columns @a) <&> (\case SqlColumn n _ _ -> ReturnExpr $ Column (tableName @a) n)
+  ret (MaybeRow tn) = toList (columns @a) <&> (\case SqlColumn n _ _ -> ReturnExpr $ Column tn n)
 
 instance IsTable a => Return (Row a) where
-  ret _ = toList (columns @a) <&> (\case SqlColumn n _ _ -> ReturnExpr $ Column (tableName @a) n)
+  ret (Row tn) = toList (columns @a) <&> (\case SqlColumn n _ _ -> ReturnExpr $ Column tn n)
 
 instance Return (SqlExpr a) where
   ret a = [ReturnExpr $ coerce a]

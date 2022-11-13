@@ -45,6 +45,4 @@ data Entity a = Entity
 
 deriving instance (Show (ID a), Show a) => Show (Entity a)
 
-data TypedColumn ty a = TypedColumn TableName ColumnName
-
 type IsTable ty = (TableColumns ty, TableCodec ty, TableInfo ty)

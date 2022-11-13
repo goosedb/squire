@@ -18,12 +18,12 @@ import Sql.Query.Types (SelectTable (..))
 import Sql.SqlExpr.Internal
   ( SqlExpr_ (..)
   )
-import Sql.Table (Entity, IsTable, TypedColumn (..))
+import Sql.Table (IsTable)
 import Sql.Table.TableInfo (TableInfo (..))
-import Sql.Types (ColumnName, Row (..), TableName)
+import Sql.Types (ColumnName, Row (..), TypedColumn (..))
 
 data SetField ty where
-  SetField :: TableName -> ColumnName -> SqlExpr a -> SetField ty
+  SetField :: ColumnName -> SqlExpr a -> SetField ty
 
 data UpdateState ty = UpdateState
   { updateFields_ :: [SetField ty]
@@ -33,7 +33,7 @@ data UpdateState ty = UpdateState
   }
 
 (=:) :: forall a ty. TypedColumn ty a -> SqlExpr a -> SetField ty
-(=:) (TypedColumn tab col) = SetField tab col
+(=:) (TypedColumn col) = SetField col
 
 newtype Update ty a = Update {getUpdateState :: State (UpdateState ty) a}
   deriving newtype (Functor, Applicative, Monad)
@@ -41,8 +41,12 @@ newtype Update ty a = Update {getUpdateState :: State (UpdateState ty) a}
 runUpdate :: Int -> Update a () -> UpdateState a
 runUpdate i = flip execState (UpdateState [] [] Nothing i) . getUpdateState
 
-update :: forall a. IsTable a => (Row (Entity a) -> Update a ()) -> Update a ()
+update :: forall a. IsTable a => (Row a -> Update a ()) -> Update a ()
 update f = f (Row (tableName @a))
+
+set :: [SetField a] -> Update a ()
+set s = Update do 
+  modify (\UpdateState {..} -> UpdateState { updateFields_ = updateFields_ <> s, ..})
 
 instance Where (Update ty) where
   where' cond = Update do

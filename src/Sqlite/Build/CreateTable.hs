@@ -17,12 +17,13 @@ import Data.Maybe (mapMaybe)
 import Sql.SqlType (SqlType (..))
 import Sql.Table (IDDefinition (..), IsTable)
 import Sql.Table.Columns (TableColumns (..))
-import Sql.Table.TableInfo (TableInfo (ID), fullTableName)
+import Sql.Table.TableInfo (TableInfo (..), fullTableName)
 import Sql.Types
 
 createTable :: forall ty. (IDDefinition (ID ty), IsTable ty) => BS.Builder
-createTable = "CREATE TABLE " <> coerce (fullTableName @ty) <> " (" <> fold (intersperse ", " formattedColumns) <> ");"
+createTable = t
   where
+    t = "CREATE TABLE " <> coerce (fullTableName @ty) <> " (" <> fold (intersperse ", " formattedColumns) <> ");"
     formattedColumns = case columns @ty of
       idColumn :| otherColumns -> formatIdColumn idColumn : (formatColumn <$> otherColumns) <> mapMaybe formatReferences otherColumns
     formatColumn =
