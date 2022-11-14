@@ -48,3 +48,7 @@ class (Universe (Unique ty), IsSqlValue (ID ty)) => TableInfo ty where
 
 fullTableName :: forall ty. TableInfo ty => Types.TableName
 fullTableName = maybe "" (<> ".") (coerce $ schemaName @ty) <> tableName @ty
+
+fullTableNameQ :: forall ty. TableInfo ty => Types.TableName
+fullTableNameQ = maybe "" ((<> ".") . q) (coerce $ schemaName @ty) <> q (tableName @ty)
+  where q a = "\"" <> a <> "\""

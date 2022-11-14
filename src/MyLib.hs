@@ -35,7 +35,7 @@ import Sql.Table.TableCodec (TableCodec)
 import Sql.Table.TableInfo (TableInfo (..))
 import Sql.Types (MaybeRow, RetRow, Row)
 import Database.SQLite.Simple (open)
-import Backend (Conn(SqliteConn), createTable, Backend (..), Insert (..))
+import Backend (Conn(SqliteConn), createTable, Backend (..), Insert (..), Upsert (..))
 import qualified Sql.Update as Q
 import Sql.Update ((=:))
 
@@ -106,15 +106,19 @@ someFunc = do
     Q.where' (Q.eid @. u ==. Q.val uId)
     Q.one (p :*: u) 
 
-  _ <- runInsert conn (InsertId (User "kyk" 18))
-  _ <- runInsert conn (InsertId (User "quz" 21))
-
   print r2
+
+  _ <- runInsert conn (InsertId (User "kyk" 18))
+  Just i1 <- runInsert conn (InsertUniqueId (User "quz" 21))
+  _ <- runUpsert conn Nothing (UpsertId (User "quz" 21)) [#age =: Q.val 15]
+  
+  print i1
 
   r3 <- runQuery conn do
     u <- Q.from @User 
     p <- Q.leftJoin @Pet \p -> #owner @? p ==. Q.just (eid @. u)
     Q.many (u :*: p) 
-  print r3
+  _ <- traverse print r3
+  pure ()
 
 

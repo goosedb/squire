@@ -123,13 +123,12 @@ instance Backend Sqlite where
           (TE.TypeError ( 'TE.Text "Sqlite backend can't work with IDs different from " 'TE.:<>: 'TE.ShowType ID'))
       )
 
-  -- createTable :: forall ty. IsTable ty => Conn Sqlite -> IO ()
-  -- createTable_ :: forall ty. (IDDefinition (ID ty), IsTable ty) => Proxy ty -> Conn Sqlite -> IO ()
   createTable_ :: (IDDefinition (ID ty), IsTable ty) => Proxy ty -> Conn Sqlite -> IO ()
-  createTable_ (_ :: Proxy ty) (SqliteConn conn)  = Sqlite.execute_ conn (Sqlite.Query $ toText $ B.createTable @ty)
+  createTable_ (_ :: Proxy ty) (SqliteConn conn)  = do
+    let q = toText $ B.createTable @ty
+    print q
+    Sqlite.execute_ conn (Sqlite.Query q)
 
-
-  -- dropTable :: forall ty. _ => Conn Sqlite -> IO ()
   dropTable_ :: IsTable ty => Proxy ty -> Conn Sqlite -> IO ()
   dropTable_ (_ :: Proxy ty) (SqliteConn conn) = Sqlite.execute_ conn (Sqlite.Query $ toText $ B.dropTable @ty)
 
@@ -159,12 +158,12 @@ instance Backend Sqlite where
   runUpdate ::  IsTable ty => Conn Sqlite -> Update ty () -> IO ()
   runUpdate (SqliteConn conn) u = do
       let (rawQ, Lite.BuildState params _) = runState (Lite.buildUpdate u) (Lite.BuildState [] 0)
-      Sqlite.execute conn (Sqlite.Query $ toText rawQ) params
+      Sqlite.execute conn (Sqlite.Query $ toText rawQ) (reverse params)
 
   runQuery :: forall a f. (Parsed a, ResultCollection f) => Conn Sqlite -> Query (f (RetRow a)) -> IO (f (Result a))
   runQuery (SqliteConn conn) q = do
     let (rawQ, Lite.BuildState params _) = runState (Lite.buildQuery q) (Lite.BuildState [] 0)
-    res <- Sqlite.query conn (Sqlite.Query $ toText rawQ) params
+    res <- Sqlite.query conn (Sqlite.Query $ toText rawQ) (reverse params)
     let parsed = forM res \r -> runEitherParser (map transformFrom r) (parseRow @a)
     case parsed of
       Left s -> error (s <> ": " <> show res)

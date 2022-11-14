@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ImplicitParams #-}
 
 module Sqlite.Build.Query where
 
@@ -24,6 +25,7 @@ import Sqlite.Build.Types (BuildState (..))
 
 buildQuery' :: QueryState -> State BuildState BS.Builder
 buildQuery' QueryState{..} = do
+  let ?tablePrefix = True
   modify' \BuildState{..} -> BuildState{buildIndex = index, ..}
   select_ <- buildSelectVals returnVals_
   fromVals_ <- ("\nFROM " <>) <$> buildFrom from_
@@ -31,13 +33,12 @@ buildQuery' QueryState{..} = do
   group_ <- buildGroupBy groupVals_ $ coerce having_
   order_ <- buildOrder orderBy_
   let lim_ = buildLimit limit_
-  modify' \BuildState{..} -> BuildState{vals = reverse vals, ..}
   pure $ select_ <> " " <> fromVals_ <> " " <> where_ <> " " <> group_ <> " " <> order_ <> " " <> lim_
 
 buildQuery :: Query (f (RetRow a)) -> State BuildState BS.Builder
 buildQuery = buildQuery' . runQuery 0
 
-buildFrom :: [SelectTable] -> State BuildState BS.Builder
+buildFrom :: (?tablePrefix :: Bool) => [SelectTable] -> State BuildState BS.Builder
 buildFrom fromTables = do
   tables <- forM
     fromTables
@@ -52,12 +53,12 @@ buildFrom fromTables = do
             FullOuter -> " FULL OUTER JOIN \"" <> name <> "\" AS " <> alias <> " ON " <> cl'
   pure $ fold tables
 
-buildSelectVals :: [ReturnExpr] -> State BuildState BS.Builder
+buildSelectVals :: (?tablePrefix :: Bool) => [ReturnExpr] -> State BuildState BS.Builder
 buildSelectVals returnValues = do
   fields <- buildFields returnValues
   pure $ "SELECT " <> fields
 
-buildFields :: [ReturnExpr] -> State BuildState BS.Builder
+buildFields :: (?tablePrefix :: Bool) => [ReturnExpr] -> State BuildState BS.Builder
 buildFields returnValues = do
   built <- forM returnValues \(ReturnExpr s) -> buildExpr s
   pure . fold $ intersperse "," built
@@ -65,7 +66,7 @@ buildFields returnValues = do
 buildLimit :: Maybe Int -> BS.Builder
 buildLimit = maybe "" (("\nLIMIT " <>) . fromString . show)
 
-buildOrder :: [OrderExpr] -> State BuildState BS.Builder
+buildOrder :: (?tablePrefix :: Bool) => [OrderExpr] -> State BuildState BS.Builder
 buildOrder = \case
   [] -> pure ""
   list -> do
@@ -77,19 +78,19 @@ buildOrder = \case
       Desc -> (:) <$> (buildExpr e <&> (<> " DESC")) <*> go rest
       Asc -> (:) <$> (buildExpr e <&> (<> " ASC")) <*> go rest
 
-buildWhere :: Maybe (SqlExpr Bool) -> State BuildState BS.Builder
+buildWhere :: (?tablePrefix :: Bool) => Maybe (SqlExpr Bool) -> State BuildState BS.Builder
 buildWhere = \case
   Just a -> ("\nWHERE " <>) <$> buildExpr (coerce a)
   Nothing -> pure ""
 
-buildGroupBy :: [ReturnExpr] -> Maybe (SqlExpr Bool) -> State BuildState BS.Builder
+buildGroupBy :: (?tablePrefix :: Bool) => [ReturnExpr] -> Maybe (SqlExpr Bool) -> State BuildState BS.Builder
 buildGroupBy [] _ = pure ""
 buildGroupBy g h = do
   f <- buildFields g
   h' <- traverse buildExpr (coerce h)
   pure $ "\nGROUP BY " <> f <> maybe "" (" HAVING " <>) h'
 
-buildExpr :: SqlExpr_ Query a -> State BuildState BS.Builder
+buildExpr :: (?tablePrefix :: Bool) => SqlExpr_ Query a -> State BuildState BS.Builder
 buildExpr = \case
   BoolOp s l r -> do
     l' <- buildExpr l
@@ -99,7 +100,7 @@ buildExpr = \case
     l' <- buildExpr l
     r' <- buildExpr r
     pure $ "(" <> l' <> " " <> s <> " " <> r' <> ")"
-  Column (TableName tn) (ColumnName cn) -> pure $ tn <> ".\"" <> cn <> "\""
+  Column (TableName tn) (ColumnName cn) -> pure $ (if ?tablePrefix then (\a -> tn <> "." <> a) else id) "\"" <> cn <> "\"" 
   Value sv -> do
     modify' \BuildState{..} -> BuildState{vals = sqlData sv : vals, ..}
     pure "?"
